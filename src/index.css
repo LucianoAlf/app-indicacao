@@ -236,6 +236,11 @@ body{
   animation:fadeUp .6s .3s var(--ease) both;
 }
 .splash-actions{width:100%;display:flex;flex-direction:column;gap:12px;animation:fadeUp .6s .4s var(--ease) both}
+.splash-form{width:100%;display:flex;flex-direction:column;gap:12px;animation:fadeUp .4s var(--ease) both}
+.form-input{width:100%;padding:14px 16px;border-radius:var(--radius);border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.92rem;outline:none;transition:border-color .2s}
+.form-input:focus{border-color:var(--gold)}
+.form-input::placeholder{color:var(--text3)}
+.form-error{color:var(--red);font-size:.8rem;text-align:center}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 

@@ -1,5 +1,8 @@
-import { Screen, Theme } from '../types';
+import { useEffect, useState } from 'react';
+import { Screen, Theme, Reward } from '../types';
 import TopBar from '../components/TopBar';
+import { useAuth } from '../lib/auth';
+import { supabase } from '../lib/supabase';
 
 interface RewardsProps {
   isActive: boolean;
@@ -9,6 +12,46 @@ interface RewardsProps {
 }
 
 export default function Rewards({ isActive, toggleTheme, goTo, theme }: RewardsProps) {
+  const { profile } = useAuth();
+  const [rewards, setRewards] = useState<Reward[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!profile) return;
+
+    const fetchRewards = async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('rewards')
+        .select('*')
+        .eq('school_id', profile.school_id)
+        .eq('active', true)
+        .order('tier');
+
+      if (data) setRewards(data);
+      setLoading(false);
+    };
+
+    fetchRewards();
+  }, [profile]);
+
+  const totalPoints = profile?.total_points ?? 0;
+
+  // Compute next reward info
+  const nextReward = rewards.find(r => totalPoints < r.points_required);
+  const currentRewardIndex = nextReward
+    ? rewards.indexOf(nextReward) - 1
+    : rewards.length - 1;
+  const pointsToNext = nextReward
+    ? nextReward.points_required - totalPoints
+    : 0;
+  const currentRewardLabel = currentRewardIndex >= 0
+    ? `${currentRewardIndex + 1}ª recompensa`
+    : 'nenhuma recompensa ainda';
+  const nextRewardText = nextReward
+    ? `Mais ${pointsToNext} pontos para o próximo prêmio!`
+    : 'Você alcançou todas as recompensas!';
+
   return (
     <div className={`screen ${isActive ? 'active' : ''}`} id="rewards">
       <TopBar
@@ -21,12 +64,12 @@ export default function Rewards({ isActive, toggleTheme, goTo, theme }: RewardsP
 
         <div className="my-pts-header">
           <div className="pts-circle">
-            <strong>340</strong>
+            <strong>{totalPoints}</strong>
             <small>pontos</small>
           </div>
           <div className="pts-header-text">
             <h3>Seus Pontos</h3>
-            <p>Você está na 1ª recompensa. Mais 160 pontos para o próximo prêmio!</p>
+            <p>Você está na {currentRewardLabel}. {nextRewardText}</p>
           </div>
         </div>
 
@@ -35,80 +78,50 @@ export default function Rewards({ isActive, toggleTheme, goTo, theme }: RewardsP
           <h3 style={{ fontFamily: 'var(--font-d)', fontSize: '1.1rem', marginBottom: '4px' }}>Escada de Prêmios</h3>
           <p style={{ fontSize: '.75rem', color: 'var(--text2)', marginBottom: '16px' }}>1 matrícula confirmada = 100 pontos</p>
 
-          <div className="reward-ladder">
-            {/* Desbloqueado */}
-            <div className="reward-rung">
-              <div className="rung-left">
-                <div className="rung-num done">✓</div>
-                <div className="rung-line done"></div>
-              </div>
-              <div className="rung-content">
-                <h4>Kit LA Music Completo</h4>
-                <p>Camiseta + Caderno + Adesivos oficiais da escola</p>
-                <div className="rung-done-label">✨ Desbloqueado! Pronto para retirar</div>
-              </div>
-              <div className="rung-emoji">🎽</div>
-            </div>
+          {loading ? (
+            <p style={{ textAlign: 'center', color: 'var(--text2)', padding: '20px' }}>Carregando recompensas...</p>
+          ) : rewards.length === 0 ? (
+            <p style={{ textAlign: 'center', color: 'var(--text2)', padding: '20px' }}>Nenhuma recompensa disponível ainda.</p>
+          ) : (
+            <div className="reward-ladder">
+              {rewards.map((reward, index) => {
+                const isUnlocked = totalPoints >= reward.points_required;
+                const isNext = !isUnlocked && (index === 0 || totalPoints >= rewards[index - 1].points_required);
+                const isLast = index === rewards.length - 1;
+                const remaining = reward.points_required - totalPoints;
 
-            {/* Ativo / próximo */}
-            <div className="reward-rung">
-              <div className="rung-left">
-                <div className="rung-num active">→</div>
-                <div className="rung-line"></div>
-              </div>
-              <div className="rung-content">
-                <h4>Jantar para a Família</h4>
-                <p>Voucher em restaurante parceiro para até 4 pessoas</p>
-                <div className="rung-pts-needed">160 pontos para desbloquear</div>
-              </div>
-              <div className="rung-emoji">🍽️</div>
+                return (
+                  <div className="reward-rung" key={reward.id}>
+                    <div className="rung-left">
+                      <div
+                        className={`rung-num ${isUnlocked ? 'done' : isNext ? 'active' : 'locked'}`}
+                        style={isLast && !isUnlocked ? { background: 'linear-gradient(135deg,var(--gold-dim),var(--teal-dim))', borderColor: 'var(--gold-border)', color: 'var(--gold)' } : undefined}
+                      >
+                        {isUnlocked ? '\u2713' : isNext ? '\u2192' : isLast ? '\ud83d\udc51' : reward.tier}
+                      </div>
+                      {!isLast && <div className={`rung-line ${isUnlocked ? 'done' : ''}`}></div>}
+                    </div>
+                    <div className="rung-content">
+                      <h4>{reward.name}</h4>
+                      <p>{reward.description}</p>
+                      {isUnlocked ? (
+                        <div className="rung-done-label">{'\u2728'} Desbloqueado! Pronto para retirar</div>
+                      ) : isLast ? (
+                        <div className="rung-pts-needed" style={{ color: 'var(--gold)' }}>{reward.points_required} pontos {'·'} Prêmio máximo</div>
+                      ) : (
+                        <div className="rung-pts-needed">{remaining} pontos para desbloquear</div>
+                      )}
+                    </div>
+                    <div className="rung-emoji">{reward.emoji}</div>
+                  </div>
+                );
+              })}
             </div>
-
-            {/* Bloqueado */}
-            <div className="reward-rung">
-              <div className="rung-left">
-                <div className="rung-num locked">3</div>
-                <div className="rung-line"></div>
-              </div>
-              <div className="rung-content">
-                <h4>Fim de Semana para o Casal</h4>
-                <p>Hospedagem em hotel parceiro (sexta a domingo)</p>
-                <div className="rung-pts-needed">360 pontos para desbloquear</div>
-              </div>
-              <div className="rung-emoji">🏨</div>
-            </div>
-
-            {/* Bloqueado */}
-            <div className="reward-rung">
-              <div className="rung-left">
-                <div className="rung-num locked">4</div>
-                <div className="rung-line"></div>
-              </div>
-              <div className="rung-content">
-                <h4>Parque de Diversões em Família</h4>
-                <p>Ingressos para até 4 pessoas no parque parceiro</p>
-                <div className="rung-pts-needed">560 pontos para desbloquear</div>
-              </div>
-              <div className="rung-emoji">🎢</div>
-            </div>
-
-            {/* Bloqueado - especial */}
-            <div className="reward-rung">
-              <div className="rung-left">
-                <div className="rung-num locked" style={{ background: 'linear-gradient(135deg,var(--gold-dim),var(--teal-dim))', borderColor: 'var(--gold-border)', color: 'var(--gold)' }}>👑</div>
-              </div>
-              <div className="rung-content">
-                <h4>Prêmio Lenda LA Music</h4>
-                <p>Experiência VIP exclusiva + mensalidade gratuita + reconhecimento especial</p>
-                <div className="rung-pts-needed" style={{ color: 'var(--gold)' }}>1000 pontos · Prêmio máximo</div>
-              </div>
-              <div className="rung-emoji">💎</div>
-            </div>
-          </div>
+          )}
         </div>
 
         <button className="btn btn-gold" onClick={() => goTo('indicate')}>
-          📲 Indicar agora e ganhar pontos
+          {'\ud83d\udcf2'} Indicar agora e ganhar pontos
         </button>
 
       </div>

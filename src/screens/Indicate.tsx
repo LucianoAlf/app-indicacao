@@ -1,5 +1,6 @@
 import { Theme } from '../types';
 import TopBar from '../components/TopBar';
+import { useAuth } from '../lib/auth';
 
 interface IndicateProps {
   isActive: boolean;
@@ -9,13 +10,18 @@ interface IndicateProps {
 }
 
 export default function Indicate({ isActive, toggleTheme, showToast, theme }: IndicateProps) {
+  const { profile } = useAuth();
+  const referralCode = profile?.referral_code ?? '';
+  const referralUrl = `https://lamusica.com/indica/${referralCode}`;
+  const referralUrlShort = `lamusica.com/indica/${referralCode}`;
+
   const copyLink = () => {
-    navigator.clipboard?.writeText('https://lamusica.com/indica/rafael2024').catch(() => {});
+    navigator.clipboard?.writeText(referralUrl).catch(() => {});
     showToast('🔗 Link copiado!');
   };
 
   const shareWhats = () => {
-    const msg = encodeURIComponent('Oi! 🎵 Estou estudando música na *LA Music* e está sendo incrível! Vem fazer uma *aula experimental grátis*! Clica aqui: https://lamusica.com/indica/rafael2024');
+    const msg = encodeURIComponent(`Oi! 🎵 Estou estudando música na *LA Music* e está sendo incrível! Vem fazer uma *aula experimental grátis*! Clica aqui: ${referralUrl}`);
     const url = 'https://wa.me/?text=' + msg;
     try { window.open(url, '_blank'); } catch(e) {}
     showToast('📲 Abrindo WhatsApp...');
@@ -41,7 +47,7 @@ export default function Indicate({ isActive, toggleTheme, showToast, theme }: In
         <div className="share-link-box">
           <div className="share-link-text">
             <p>Seu link de indicação</p>
-            <code>lamusica.com/indica/rafael2024</code>
+            <code>{referralUrlShort}</code>
           </div>
           <button className="copy-btn" onClick={copyLink}>Copiar</button>
         </div>
@@ -76,7 +82,7 @@ export default function Indicate({ isActive, toggleTheme, showToast, theme }: In
         <div className="msg-preview">
           <h3>Mensagem pronta para enviar</h3>
           <div className="msg-bubble">
-            Oi! 🎵 Estou estudando música na <strong>LA Music</strong> e está sendo incrível! Você podia vir fazer uma <strong>aula experimental grátis</strong>! Clica aqui para agendar: lamusica.com/indica/rafael2024 — uso esse link que é da minha indicação 😄
+            Oi! 🎵 Estou estudando música na <strong>LA Music</strong> e está sendo incrível! Você podia vir fazer uma <strong>aula experimental grátis</strong>! Clica aqui para agendar: {referralUrlShort} — uso esse link que é da minha indicação 😄
           </div>
         </div>
 
